@@ -34,7 +34,7 @@ OUTPUT_PATH = Path("/output")
 RESOURCE_PATH = Path("resources")
 
 
-def run():
+def run(model):
     # The key is a tuple of the slugs of the input sockets
     interface_key = get_interface_key()
 
@@ -69,10 +69,10 @@ def run():
     }[interface_key]
 
     # Call the handler
-    return handler()
+    return handler(model)
 
 
-def interf0_handler():
+def interf0_handler(model):
     # Read the input
 
     input_radiation_dose_calculation_source_ct_image_1 = load_image_file_as_array(
@@ -120,24 +120,11 @@ def interf0_handler():
     )
 
     # Process the inputs: any way you'd like, here we show-case torch
-    _show_torch_cuda_info()
 
     # Example how to set torch to use the GPU (if available)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-    model = torch.nn.Linear(10, 1).to(device)
-    input = torch.randn(1, 10).to(device)
-    output = model(input)
-
-    # Your model will be extracted to the `model_dir` at runtime on Grand Challenge
-    # Note: when testing locally, the local `./model` directory is mounted here.
-    # Eventually, you should upload it as a tarball to Grand Challenge!
-    # Go to Algorithm and upload it under Models.
-    model_dir = Path("/opt/ml/model")
-    with open(
-        model_dir / "a_tarball_subdirectory" / "some_tarball_resource.txt", "r"
-    ) as f:
-        print(f.read())
+    model_input = torch.randn(1, 10).to(device)
+    model_output = model(model_input)
 
     # For now, let us make bogus predictions
 
@@ -216,7 +203,7 @@ def interf0_handler():
     return 0
 
 
-def interf1_handler():
+def interf1_handler(model):
     # Read the input
 
     input_radiation_dose_calculation_source_ct_image_1 = load_image_file_as_array(
@@ -264,7 +251,6 @@ def interf1_handler():
     )
 
     # Process the inputs: any way you'd like, here we show-case torch
-    _show_torch_cuda_info()
 
     # Example how to set torch to use the GPU (if available)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -402,17 +388,6 @@ def write_array_as_image_file(*, location, array):
         useCompression=True,
     )
 
-
-def _show_torch_cuda_info():
-    print("=+=" * 10)
-    print("Collecting Torch CUDA information")
-    print(f"Torch CUDA is available: {(available := torch.cuda.is_available())}")
-    if available:
-        print(f"\tnumber of devices: {torch.cuda.device_count()}")
-        print(f"\tcurrent device: { (current_device := torch.cuda.current_device())}")
-        print(f"\tproperties: {torch.cuda.get_device_properties(current_device)}")
-    print("=+=" * 10)
-
-
 if __name__ == "__main__":
-    raise SystemExit(run())
+    from app import init_model
+    raise SystemExit(run(model=init_model()))
