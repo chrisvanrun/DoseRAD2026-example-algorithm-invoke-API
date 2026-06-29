@@ -1,0 +1,41 @@
+[
+    {
+        "beams": [
+            {
+                "rays": [
+                    {
+                        "beamlets": [
+                            {
+                                "energy": 6.0,
+                                "beamlet_uuid": "1609c1eb-378b-4040-92f0-32301c9eb5b0",
+                                "suggested_cutoff": 0.01
+                            }
+                        ],
+                        "ray_source": [
+                            0.0,
+                            1000.0,
+                            0.0
+                        ],
+                        "ray_target": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "output_info": {
+                            "idx_in_output": 0,
+                            "output_file_idx": 0
+                        }
+                    }
+                ],
+                "iso_center": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "gantry_angle": 0.0
+            }
+        ],
+        "image_file_idx": 0,
+        "anatomical_region": "thoracic"
+    }
+]

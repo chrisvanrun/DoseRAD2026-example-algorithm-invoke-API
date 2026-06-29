@@ -1,0 +1,257 @@
+[
+    {
+        "socket": {
+            "slug": "radiation-dose-calculation-source-ct-image-1",
+            "relative_path": "images/radiation-dose-calculation-source-ct-image-1",
+            "is_image_kind": true,
+            "is_panimg_kind": true,
+            "is_dicom_image_kind": false,
+            "is_json_kind": false,
+            "is_file_kind": false
+        },
+        "file": null,
+        "image": {
+            "name": "the_original_filename_of_the_file_that_was_uploaded_or_image_set"
+        },
+        "value": null
+    },
+    {
+        "socket": {
+            "slug": "radiation-dose-calculation-source-ct-image-2",
+            "relative_path": "images/radiation-dose-calculation-source-ct-image-2",
+            "is_image_kind": true,
+            "is_panimg_kind": true,
+            "is_dicom_image_kind": false,
+            "is_json_kind": false,
+            "is_file_kind": false
+        },
+        "file": null,
+        "image": {
+            "name": "the_original_filename_of_the_file_that_was_uploaded_or_image_set"
+        },
+        "value": null
+    },
+    {
+        "socket": {
+            "slug": "radiation-dose-calculation-source-ct-image-3",
+            "relative_path": "images/radiation-dose-calculation-source-ct-image-3",
+            "is_image_kind": true,
+            "is_panimg_kind": true,
+            "is_dicom_image_kind": false,
+            "is_json_kind": false,
+            "is_file_kind": false
+        },
+        "file": null,
+        "image": {
+            "name": "the_original_filename_of_the_file_that_was_uploaded_or_image_set"
+        },
+        "value": null
+    },
+    {
+        "socket": {
+            "slug": "radiation-dose-calculation-source-ct-image-4",
+            "relative_path": "images/radiation-dose-calculation-source-ct-image-4",
+            "is_image_kind": true,
+            "is_panimg_kind": true,
+            "is_dicom_image_kind": false,
+            "is_json_kind": false,
+            "is_file_kind": false
+        },
+        "file": null,
+        "image": {
+            "name": "the_original_filename_of_the_file_that_was_uploaded_or_image_set"
+        },
+        "value": null
+    },
+    {
+        "socket": {
+            "slug": "radiation-dose-calculation-source-ct-image-5",
+            "relative_path": "images/radiation-dose-calculation-source-ct-image-5",
+            "is_image_kind": true,
+            "is_panimg_kind": true,
+            "is_dicom_image_kind": false,
+            "is_json_kind": false,
+            "is_file_kind": false
+        },
+        "file": null,
+        "image": {
+            "name": "the_original_filename_of_the_file_that_was_uploaded_or_image_set"
+        },
+        "value": null
+    },
+    {
+        "socket": {
+            "slug": "radiation-dose-calculation-source-ct-image-6",
+            "relative_path": "images/radiation-dose-calculation-source-ct-image-6",
+            "is_image_kind": true,
+            "is_panimg_kind": true,
+            "is_dicom_image_kind": false,
+            "is_json_kind": false,
+            "is_file_kind": false
+        },
+        "file": null,
+        "image": {
+            "name": "the_original_filename_of_the_file_that_was_uploaded_or_image_set"
+        },
+        "value": null
+    },
+    {
+        "socket": {
+            "slug": "radiation-dose-calculation-source-ct-image-7",
+            "relative_path": "images/radiation-dose-calculation-source-ct-image-7",
+            "is_image_kind": true,
+            "is_panimg_kind": true,
+            "is_dicom_image_kind": false,
+            "is_json_kind": false,
+            "is_file_kind": false
+        },
+        "file": null,
+        "image": {
+            "name": "the_original_filename_of_the_file_that_was_uploaded_or_image_set"
+        },
+        "value": null
+    },
+    {
+        "socket": {
+            "slug": "radiation-dose-calculation-source-ct-image-8",
+            "relative_path": "images/radiation-dose-calculation-source-ct-image-8",
+            "is_image_kind": true,
+            "is_panimg_kind": true,
+            "is_dicom_image_kind": false,
+            "is_json_kind": false,
+            "is_file_kind": false
+        },
+        "file": null,
+        "image": {
+            "name": "the_original_filename_of_the_file_that_was_uploaded_or_image_set"
+        },
+        "value": null
+    },
+    {
+        "socket": {
+            "slug": "radiation-dose-calculation-source-ct-image-9",
+            "relative_path": "images/radiation-dose-calculation-source-ct-image-9",
+            "is_image_kind": true,
+            "is_panimg_kind": true,
+            "is_dicom_image_kind": false,
+            "is_json_kind": false,
+            "is_file_kind": false
+        },
+        "file": null,
+        "image": {
+            "name": "the_original_filename_of_the_file_that_was_uploaded_or_image_set"
+        },
+        "value": null
+    },
+    {
+        "socket": {
+            "slug": "radiation-dose-calculation-source-ct-image-10",
+            "relative_path": "images/radiation-dose-calculation-source-ct-image-10",
+            "is_image_kind": true,
+            "is_panimg_kind": true,
+            "is_dicom_image_kind": false,
+            "is_json_kind": false,
+            "is_file_kind": false
+        },
+        "file": null,
+        "image": {
+            "name": "the_original_filename_of_the_file_that_was_uploaded_or_image_set"
+        },
+        "value": null
+    },
+    {
+        "socket": {
+            "slug": "stacked-proton-beam-level-metadata",
+            "relative_path": "stacked-proton-beam-level-metadata.json",
+            "example_value": [
+                {
+                    "beams": [
+                        {
+                            "rays": [
+                                {
+                                    "beamlets": [
+                                        {
+                                            "energy": 6.0,
+                                            "beamlet_uuid": "1609c1eb-378b-4040-92f0-32301c9eb5b0",
+                                            "suggested_cutoff": 0.01
+                                        }
+                                    ],
+                                    "ray_source": [
+                                        0.0,
+                                        1000.0,
+                                        0.0
+                                    ],
+                                    "ray_target": [
+                                        0.0,
+                                        0.0,
+                                        0.0
+                                    ],
+                                    "output_info": {
+                                        "idx_in_output": 0,
+                                        "output_file_idx": 0
+                                    }
+                                }
+                            ],
+                            "iso_center": [
+                                0.0,
+                                0.0,
+                                0.0
+                            ],
+                            "gantry_angle": 0.0
+                        }
+                    ],
+                    "image_file_idx": 0,
+                    "anatomical_region": "thoracic"
+                }
+            ],
+            "is_image_kind": false,
+            "is_panimg_kind": false,
+            "is_dicom_image_kind": false,
+            "is_json_kind": true,
+            "is_file_kind": false
+        },
+        "file": null,
+        "image": null,
+        "value": [
+            {
+                "beams": [
+                    {
+                        "rays": [
+                            {
+                                "beamlets": [
+                                    {
+                                        "energy": 6.0,
+                                        "beamlet_uuid": "1609c1eb-378b-4040-92f0-32301c9eb5b0",
+                                        "suggested_cutoff": 0.01
+                                    }
+                                ],
+                                "ray_source": [
+                                    0.0,
+                                    1000.0,
+                                    0.0
+                                ],
+                                "ray_target": [
+                                    0.0,
+                                    0.0,
+                                    0.0
+                                ],
+                                "output_info": {
+                                    "idx_in_output": 0,
+                                    "output_file_idx": 0
+                                }
+                            }
+                        ],
+                        "iso_center": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "gantry_angle": 0.0
+                    }
+                ],
+                "image_file_idx": 0,
+                "anatomical_region": "thoracic"
+            }
+        ]
+    }
+]
