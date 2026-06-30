@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
 
 # Stop at first error
-set -e
-
-export DOCKER_CLI_HINTS=false
-LOG_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")   # initialize before first use
-
+set -euo pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
 DOCKER_IMAGE_TAG="example_algorithm_phase-1"
 CONTAINER_NAME="example_algorithm_phase-1_container"
-PORT=37847
-
-DOCKER_NOOP_VOLUME="${DOCKER_IMAGE_TAG}-volume"
 
 INPUT_DIR="${SCRIPT_DIR}/test/input"
 OUTPUT_DIR="${SCRIPT_DIR}/test/output"
+
+# This can be any open port
+PORT=37847
 
 # Staging directories are bind-mounted into the container as /input and /output.
 # They start empty and are provisioned with hard-linked input files right before each
@@ -22,49 +19,82 @@ OUTPUT_DIR="${SCRIPT_DIR}/test/output"
 STAGING_INPUT_DIR="${SCRIPT_DIR}/test/.staging_input"
 STAGING_OUTPUT_DIR="${SCRIPT_DIR}/test/.staging_output"
 
-echo "=+= (Re)build the container"
-source "${SCRIPT_DIR}/do_build.sh"
+main() {
+  setup
 
-echo "=+= Verifying container labels"
-API_METHOD=$(docker inspect --format='{{index .Config.Labels "org.grand-challenge.api-method"}}' "$DOCKER_IMAGE_TAG" 2>/dev/null || echo "")
-if [ "$API_METHOD" != "invoke" ]; then
-    echo "ERROR: The container image is missing the required label:"
-    echo "  LABEL org.grand-challenge.api-method=\"invoke\""
-    echo ""
-    echo "Without this label, Grand Challenge will not recognize that your"
-    echo "container implements the invoke API and will default to exec mode."
-    echo "Please add this label to your Dockerfile."
-    exit 1
-fi
+  build_container
+  start_container
+  
+  check_health
+
+  provision "interf0"
+  invoke
+  collect_output "interf0"
+  log "Wrote results to ${OUTPUT_DIR}/interf0"
+
+  provision "interf1"
+  invoke
+  collect_output "interf1"
+  log "Wrote results to ${OUTPUT_DIR}/interf1"
+
+  log "Save this image for uploading via ./do_save.sh"
+}
+
+setup() {
+  # This allows for the Docker user to read
+  chmod -R -f o+rX "$INPUT_DIR" "${SCRIPT_DIR}/model"
+
+  # Disables prompotional logs from Docker
+  export DOCKER_CLI_HINTS=false
+
+  # Initialize
+  LOG_LINES_SHOWN=0
+
+  DOCKER_NOOP_VOLUME="${DOCKER_IMAGE_TAG}-volume"
+  
+  # Create empty staging directories for /input and /output bind mounts
+  rm -rf "$STAGING_INPUT_DIR" "$STAGING_OUTPUT_DIR"
+  mkdir -m o+rwX "$STAGING_INPUT_DIR"
+  mkdir -m o+rwX "$STAGING_OUTPUT_DIR"
+
+  docker volume create "$DOCKER_NOOP_VOLUME" > /dev/null
+}
 
 cleanup() {
-    echo "=+= Cleanup ..."
+    log "Cleanup ..."
     # Ensure permissions are set correctly on the output
     # This allows the host user (e.g. you) to access and handle these files
 
     docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
-    echo "=+= Container stopped"
+    log "Container stopped"
 
     # Remove staging directories and noop volume
     rm -rf "$STAGING_INPUT_DIR" "$STAGING_OUTPUT_DIR"
     docker volume rm "$DOCKER_NOOP_VOLUME" > /dev/null 2>&1 || true
 }
 
-# This allows for the Docker user to read
-chmod -R -f o+rX "$INPUT_DIR" "${SCRIPT_DIR}/model"
-
-
-# Create empty staging directories for /input and /output bind mounts
-rm -rf "$STAGING_INPUT_DIR" "$STAGING_OUTPUT_DIR"
-mkdir -m o+rwX "$STAGING_INPUT_DIR"
-mkdir -m o+rwX "$STAGING_OUTPUT_DIR"
-
-docker volume create "$DOCKER_NOOP_VOLUME" > /dev/null
-
 trap cleanup EXIT
 
+build_container() {
+  log "(Re)build the container"
+  source "${SCRIPT_DIR}/do_build.sh"
+
+  log "Verifying container labels"
+  API_METHOD=$(docker inspect --format='{{index .Config.Labels "org.grand-challenge.api-method"}}' "$DOCKER_IMAGE_TAG" 2>/dev/null || echo "")
+  if [ "$API_METHOD" != "invoke" ]; then
+      log "ERROR: The container image is missing the required label:"
+      log "  LABEL org.grand-challenge.api-method=\"invoke\""
+      log ""
+      log "Without this label, Grand Challenge will not recognize that your"
+      log "container implements the invoke API and will default to exec mode."
+      log "Please add this label to your Dockerfile."
+      exit 1
+  fi
+}
+
 start_container() {
-  echo "=+= Starting container"
+  log "Starting container"
+
   ## Note the extra arguments that are passed here:
   # '-p ${PORT}:4743'
   #    maps local port to container port 4743
@@ -84,7 +114,7 @@ start_container() {
       --detach
       --name "$CONTAINER_NAME"
       --platform=linux/amd64
-      -p ${PORT}:4743
+      -p ${PORT}:4743 # Note 4743 is required
       --volume "$STAGING_INPUT_DIR":/input:ro
       --volume "$STAGING_OUTPUT_DIR":/output
       --volume "$DOCKER_NOOP_VOLUME":/tmp
@@ -93,17 +123,33 @@ start_container() {
 
   docker run "${DOCKER_RUN_ARGS[@]}" "$DOCKER_IMAGE_TAG" >/dev/null
 
-  echo "=+= Container started"
+  log "Container started"
 }
 
-show_log() {
-  docker logs --since "$LOG_TIME" $CONTAINER_NAME
+flush_docker_log() {
+  docker logs --timestamps --since "$LOG_TIME" $CONTAINER_NAME
   LOG_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  log $LOG_TIME
 }
+
+
+flush_docker_log() {
+  local total_lines new_lines
+
+  total_lines=$(docker logs "$CONTAINER_NAME" 2>&1 | wc -l)
+  new_lines=$((total_lines - LOG_LINES_SHOWN))
+
+  if (( new_lines > 0 )); then
+    docker logs --timestamps --tail "$new_lines" "$CONTAINER_NAME"
+  fi
+
+  LOG_LINES_SHOWN=$total_lines
+}
+
 
 
 check_health() {
-    echo "=+= Waiting for health endpoint..."
+    log "Waiting for health endpoint..."
 
     local max_attempts=30
     local delay=3
@@ -113,32 +159,32 @@ check_health() {
             --max-time 10 \
             http://localhost:${PORT}/health || echo "000")
 
-        echo "Health check attempt $i/$max_attempts returned $STATUS"
+        log "Health check attempt $i/$max_attempts returned $STATUS"
 
         if [[ "$STATUS" == "200" ]]; then
-            echo "=+= API healthy!"
-            show_log
+            log "API healthy!"
+            flush_docker_log
             return 0
         fi
 
         if [[ "$STATUS" == "302" ]]; then
-            echo "Health endpoint returned 302 — failing"
-            show_log
+            log "Health endpoint returned 302 — failing"
+            flush_docker_log
             return 1
         fi
 
-        echo "Retrying in ${delay}s"
+        log "Retrying in ${delay}s"
         sleep "$delay"
     done
 
-    echo "Health endpoint never returned 200"
+    log "Health endpoint never returned 200"
     return 1
 }
 
 provision() {
     local interface_dir="$1"
 
-    echo "=+= Provisioning input for ${interface_dir}"
+    log "Provisioning input for ${interface_dir}"
 
     # Clear /output inside the container (host can't due to UID mismatch on Linux)
     docker exec --user root "$CONTAINER_NAME" \
@@ -150,29 +196,29 @@ provision() {
 }
 
 invoke() {
-    echo "=+= Calling invoke endpoint..."
+    log "Calling invoke endpoint..."
 
     STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
         --max-time 300 \
         -X POST http://localhost:${PORT}/invoke || echo "000")
     
-    show_log
+    flush_docker_log
 
     if [ "$STATUS" != "201" ]; then
-        echo "Invoke failed with status $STATUS"
+        log "Invoke failed with status $STATUS"
         exit 1
     fi
 
-    echo "=+=   ...invoke completed"
+    log "...invoke completed"
 }
 
 collect_output() {
     local interface_dir="$1"
 
-    echo "=+= Collecting output for ${interface_dir}"
+    log "Collecting output for ${interface_dir}"
 
     if [ -d "${OUTPUT_DIR}/$interface_dir" ]; then
-      echo "=+= Cleaning up any earlier collected output"
+      log "Cleaning up any earlier collected output"
       rm -rf "${OUTPUT_DIR}/$interface_dir"/*
     else
       mkdir -p -m o+rwX "${OUTPUT_DIR}/interf0"
@@ -187,18 +233,14 @@ collect_output() {
     cp -rl "$STAGING_OUTPUT_DIR/." "${OUTPUT_DIR}/${interface_dir}/"
 }
 
-start_container
-check_health
+log() {
+    local message="$1"
+    if [[ -t 1 ]]; then
+      printf "\e[38;2;36;150;237m> %s\e[0m\n" "$message"
+    else
+      # No user is watching, drop the colour
+      printf "%s\n" "$message"
+    fi
+  }
 
-provision "interf0"
-invoke
-collect_output "interf0"
-echo "=+= Wrote results to ${OUTPUT_DIR}/interf0"
-
-provision "interf1"
-invoke
-collect_output "interf1"
-echo "=+= Wrote results to ${OUTPUT_DIR}/interf1"
-
-
-echo "=+= Save this image for uploading via ./do_save.sh"
+main

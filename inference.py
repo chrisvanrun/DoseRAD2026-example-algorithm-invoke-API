@@ -35,6 +35,7 @@ RESOURCE_PATH = Path("resources")
 
 
 def run(model):
+
     # The key is a tuple of the slugs of the input sockets
     interface_key = get_interface_key()
 
@@ -74,6 +75,8 @@ def run(model):
 
 def interf0_handler(model):
     # Read the input
+
+    print("HELLO from the interf0_handler function")
 
     input_radiation_dose_calculation_source_ct_image_1 = load_image_file_as_array(
         location=INPUT_PATH / "images/radiation-dose-calculation-source-ct-image-1",
@@ -206,6 +209,8 @@ def interf0_handler(model):
 def interf1_handler(model):
     # Read the input
 
+    print("HELLO from the interf1_handler function")
+           
     input_radiation_dose_calculation_source_ct_image_1 = load_image_file_as_array(
         location=INPUT_PATH / "images/radiation-dose-calculation-source-ct-image-1",
     )
@@ -254,20 +259,8 @@ def interf1_handler(model):
 
     # Example how to set torch to use the GPU (if available)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-    model = torch.nn.Linear(10, 1).to(device)
-    input = torch.randn(1, 10).to(device)
-    output = model(input)
-
-    # Your model will be extracted to the `model_dir` at runtime on Grand Challenge
-    # Note: when testing locally, the local `./model` directory is mounted here.
-    # Eventually, you should upload it as a tarball to Grand Challenge!
-    # Go to Algorithm and upload it under Models.
-    model_dir = Path("/opt/ml/model")
-    with open(
-        model_dir / "a_tarball_subdirectory" / "some_tarball_resource.txt", "r"
-    ) as f:
-        print(f.read())
+    model_input = torch.randn(1, 10).to(device)
+    model_output = model(model_input)
 
     # For now, let us make bogus predictions
 
