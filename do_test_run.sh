@@ -90,15 +90,8 @@ setup() {
   CONTAINER_PORT=4743
   BASE_URL="http://${CONTAINER_NAME}:${CONTAINER_PORT}"
 
-  # The tester sidecar's image. Pin this to a specific tag in your own repo
-  # for reproducibility; `latest` is used here for simplicity.
- 
-
 
   # An isolated network that mimics restrictions on Grand Challenge.
-  # NOTE: --internal networks cannot be used with -p/--publish, and the
-  # algorithm container's IP on it usually isn't reachable from the real
-  # host (see header comment) -- that's why the tester sidecar exists.
   DOCKER_NETWORK_TAG="${DOCKER_IMAGE_TAG}-isolated"
   docker network create --internal "$DOCKER_NETWORK_TAG" > /dev/null
 
@@ -163,6 +156,7 @@ start_container() {
   local docker_run_args=(
     --detach
     --name "$CONTAINER_NAME"
+    --gpu all
     --platform=linux/amd64
     --volume "${SCRIPT_DIR}/model":/opt/ml/model:ro
     --volume "$STAGING_INPUT_DIR":/input:ro
@@ -195,11 +189,7 @@ flush_docker_log() {
 
 
 http_status() {
-  # Issues a request *from inside the tester sidecar* (not the host -- see
-  # header comment) and prints just the HTTP status code, or "000" if the
-  # request couldn't be completed at all (e.g. connection refused). This is
-  # the single call site for `docker exec ... curl` so all requests to the
-  # algorithm container go through one place.
+  # Issues a request *from inside the tester sidecar* (not the host)
 
   local method="$1"
   local timeout_seconds="$2"
