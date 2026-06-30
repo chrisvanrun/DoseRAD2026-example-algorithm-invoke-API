@@ -30,9 +30,6 @@ OUTPUT_DIR="${SCRIPT_DIR}/test/output"
 STAGING_INPUT_DIR="${SCRIPT_DIR}/test/.staging_input"
 STAGING_OUTPUT_DIR="${SCRIPT_DIR}/test/.staging_output"
 
-# Any open local port; maps to the container's required port 4743.
-PORT=37847
-
 # How long to wait for the container's /health endpoint to come up.
 HEALTH_CHECK_MAX_ATTEMPTS=30
 HEALTH_CHECK_DELAY_SECONDS=3       # ~90s total before giving up
@@ -41,9 +38,11 @@ HEALTH_CHECK_TIMEOUT_SECONDS=10
 # How long a single /invoke call is allowed to run.
 INVOKE_TIMEOUT_SECONDS=300
 
-# --- Globals -----------------------------------------------------------
+# --- Globals -------------------------------------------------------------
 LOG_LINES_SHOWN=0
-# -----------------------------------------------------------------------
+DOCKER_VOLUME_TAG=""    # set by setup()
+DOCKER_NETWORK_TAG=""   # set by setup()
+# ---------------------------------------------------------------------------
 
 
 main() {
@@ -70,6 +69,7 @@ main() {
 
 
 setup() {
+  log "Setup ..."
   # Allow the Docker user to read these on the host
   chmod -R -f o+rX "$INPUT_DIR" "${SCRIPT_DIR}/model"
 
@@ -81,8 +81,34 @@ setup() {
   mkdir -m o+rwX "$STAGING_INPUT_DIR"
   mkdir -m o+rwX "$STAGING_OUTPUT_DIR"
 
-  # A scratch volume mounted as /tmp inside the container
-  docker volume create "${DOCKER_IMAGE_TAG}-volume" > /dev/null
+  # A scratch volume that mimics the high I/O scratch on Grand Challenge
+  DOCKER_VOLUME_TAG="${DOCKER_IMAGE_TAG}-scratch"
+  docker volume create "$DOCKER_VOLUME_TAG" > /dev/null
+
+  # The container's required listening port, and the URL the tester sidecar
+  # uses to reach it (resolved by container name via Docker's embedded DNS).
+  CONTAINER_PORT=4743
+  BASE_URL="http://${CONTAINER_NAME}:${CONTAINER_PORT}"
+
+  # The tester sidecar's image. Pin this to a specific tag in your own repo
+  # for reproducibility; `latest` is used here for simplicity.
+ 
+
+
+  # An isolated network that mimics restrictions on Grand Challenge.
+  # NOTE: --internal networks cannot be used with -p/--publish, and the
+  # algorithm container's IP on it usually isn't reachable from the real
+  # host (see header comment) -- that's why the tester sidecar exists.
+  DOCKER_NETWORK_TAG="${DOCKER_IMAGE_TAG}-isolated"
+  docker network create --internal "$DOCKER_NETWORK_TAG" > /dev/null
+
+  # The tester sidecar: lives on the isolated network so it can reach the
+  # algorithm container by name, and is how we issue health/invoke checks
+  # without needing the real host to route into that network.
+  TESTER_NAME="${DOCKER_IMAGE_TAG}-tester"
+  docker run --detach --name "$TESTER_NAME" \
+      --network "$DOCKER_NETWORK_TAG" \
+      curlimages/curl:latest sleep infinity > /dev/null
 }
 
 
@@ -90,11 +116,15 @@ cleanup() {
   log "Cleanup ..."
 
   docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+  docker rm -f "$TESTER_NAME" >/dev/null 2>&1 || true
   log "Container stopped"
 
-  # Remove staging directories and the scratch volume so reruns start clean
+  # Remove staging directories
   rm -rf "$STAGING_INPUT_DIR" "$STAGING_OUTPUT_DIR"
-  docker volume rm "${DOCKER_IMAGE_TAG}-volume" > /dev/null 2>&1 || true
+
+  # Remove the volume and network
+  docker volume rm "$DOCKER_VOLUME_TAG" > /dev/null 2>&1 || true
+  docker network rm "$DOCKER_NETWORK_TAG" > /dev/null 2>&1 || true
 }
 
 
@@ -124,30 +154,26 @@ start_container() {
   log "Starting container"
 
   # Extra arguments worth calling out:
-  #   -p ${PORT}:4743        maps a local port to the container's port 4743
+  #   --network <isolated>   no internet access (see header comment); no -p
+  #                          here since publishing doesn't work on internal
+  #                          networks -- see the tester sidecar instead
   #   --volume <vol>:/tmp    scratch space (Grand Challenge disallows writes
   #                          elsewhere outside the mounted directories)
   #   --volume model:/opt/ml/model:ro   the (optional) tarball-upload, locally
-  #
-  # NOTE: --network none is NOT used here even though Grand Challenge runs
-  # containers without network access. The invoke API requires the host to
-  # reach the container's HTTP server via the mapped port, which isn't
-  # possible with --network none. In production, sagemaker-shim calls the
-  # invoke endpoint from inside the container, so network isolation works.
   local docker_run_args=(
     --detach
     --name "$CONTAINER_NAME"
     --platform=linux/amd64
-    -p "${PORT}:4743"
+    --volume "${SCRIPT_DIR}/model":/opt/ml/model:ro
     --volume "$STAGING_INPUT_DIR":/input:ro
     --volume "$STAGING_OUTPUT_DIR":/output
-    --volume "${DOCKER_IMAGE_TAG}-volume":/tmp
-    --volume "${SCRIPT_DIR}/model":/opt/ml/model:ro
+    --volume "$DOCKER_VOLUME_TAG":/tmp
+    --network "$DOCKER_NETWORK_TAG"
   )
 
   docker run "${docker_run_args[@]}" "$DOCKER_IMAGE_TAG" >/dev/null
 
-  log "Container started"
+  log "Container started; reachable from the tester sidecar at ${BASE_URL}"
 }
 
 
@@ -169,13 +195,19 @@ flush_docker_log() {
 
 
 http_status() {
-  # Issues a GET request and prints just the HTTP status code, or "000" if
-  # the request couldn't be completed at all (e.g. connection refused).
-  
-  local timeout_seconds="$1"
-  local url="$2"
+  # Issues a request *from inside the tester sidecar* (not the host -- see
+  # header comment) and prints just the HTTP status code, or "000" if the
+  # request couldn't be completed at all (e.g. connection refused). This is
+  # the single call site for `docker exec ... curl` so all requests to the
+  # algorithm container go through one place.
 
-  curl -s -o /dev/null -w "%{http_code}" --max-time "$timeout_seconds" "$url" \
+  local method="$1"
+  local timeout_seconds="$2"
+  local url="$3"
+
+  docker exec "$TESTER_NAME" \
+      curl -s -o /dev/null -w "%{http_code}" --max-time "$timeout_seconds" \
+      -X "$method" "$url" \
     || echo "000"
 }
 
@@ -185,8 +217,7 @@ check_health() {
 
   local status
   for ((i = 1; i <= HEALTH_CHECK_MAX_ATTEMPTS; i++)); do
-    status=$(http_status "$HEALTH_CHECK_TIMEOUT_SECONDS" \
-        "http://localhost:${PORT}/health")
+    status=$(http_status "GET" "$HEALTH_CHECK_TIMEOUT_SECONDS" "${BASE_URL}/health")
 
     log "Health check attempt $i/${HEALTH_CHECK_MAX_ATTEMPTS} returned $status"
 
@@ -229,9 +260,7 @@ invoke() {
   log "Calling invoke endpoint..."
 
   local status
-  status=$(curl -s -o /dev/null -w "%{http_code}" \
-      --max-time "$INVOKE_TIMEOUT_SECONDS" \
-      -X POST "http://localhost:${PORT}/invoke" || echo "000")
+  status=$(http_status "POST" "$INVOKE_TIMEOUT_SECONDS" "${BASE_URL}/invoke")
 
   flush_docker_log
 
